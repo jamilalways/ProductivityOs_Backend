@@ -1,5 +1,4 @@
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config();
 
 const express    = require('express');
 const mongoose   = require('mongoose');
@@ -13,7 +12,6 @@ const { apiLimiter } = require('./src/middleware/rateLimiter');
 const errorHandler   = require('./src/middleware/errorHandler');
 const { startScheduler } = require('./src/utils/scheduler');
 
-// ── Route imports ──────────────────────────────────────────────────────────────
 const authRoutes      = require('./src/routes/auth');
 const taskRoutes      = require('./src/routes/tasks');
 const goalRoutes      = require('./src/routes/goals');
@@ -24,14 +22,29 @@ const analyticsRoutes = require('./src/routes/analytics');
 
 const app = express();
 
-// ── Security middleware ────────────────────────────────────────────────────────
+// ── CORS ───────────────────────────────────────────────────────────────────────
 app.use(helmet());
-app.use(cors({
-  origin:      config.clientUrl,
+
+const ALLOWED_ORIGINS = [
+  config.clientUrl,
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (origin.endsWith('.vercel.app')) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error('CORS: origin ' + origin + ' not allowed'));
+  },
   credentials: true,
-  methods:     ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(apiLimiter);
 
 // ── Body parsing & logging ─────────────────────────────────────────────────────
@@ -54,25 +67,24 @@ app.get('/api/health', (_req, res) => {
     status:  'OK',
     env:     config.nodeEnv,
     db:      mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    uptime:  `${Math.floor(process.uptime())}s`,
+    uptime:  Math.floor(process.uptime()) + 's',
   });
 });
 
-// ── 404 handler ────────────────────────────────────────────────────────────────
+// ── 404 ────────────────────────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ message: 'Route not found' }));
 
-// ── Global error handler ───────────────────────────────────────────────────────
+// ── Error handler ─────────────────────────────────────────────────────────────
 app.use(errorHandler);
 
-// ── Database + server start ────────────────────────────────────────────────────
+// ── Start ─────────────────────────────────────────────────────────────────────
 const startServer = async () => {
   try {
-    await connectDB();   // uses db.js with proper options
-
+    await connectDB();
     app.listen(config.port, () => {
-      console.log(`🚀  Server running  → http://localhost:${config.port}`);
-      console.log(`📡  Environment     → ${config.nodeEnv}`);
-      console.log(`🔗  Frontend URL    → ${config.clientUrl}`);
+      console.log('🚀  Server running  → http://localhost:' + config.port);
+      console.log('📡  Environment     → ' + config.nodeEnv);
+      console.log('🔗  Frontend URL    → ' + config.clientUrl);
       startScheduler();
     });
   } catch (err) {
