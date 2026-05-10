@@ -22,37 +22,33 @@ const analyticsRoutes = require('./src/routes/analytics');
 
 const app = express();
 
-// ── CORS ───────────────────────────────────────────────────────────────────────
-app.use(helmet());
-
-const ALLOWED_ORIGINS = [
-  config.clientUrl,
-  'http://localhost:5173',
-  'http://localhost:3000',
-];
+// CORS
+app.use(helmet({ crossOriginResourcePolicy: false }));
 
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
+    if (origin.startsWith('http://localhost:')) return callback(null, true);
+    if (origin.startsWith('http://127.0.0.1:')) return callback(null, true);
     if (origin.endsWith('.vercel.app')) return callback(null, true);
-    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
-    callback(new Error('CORS: origin ' + origin + ' not allowed'));
+    if (config.clientUrl && origin === config.clientUrl) return callback(null, true);
+    console.log('CORS blocked:', origin);
+    callback(new Error('CORS: origin not allowed'));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200,
 };
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 app.use(apiLimiter);
 
-// ── Body parsing & logging ─────────────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 if (config.nodeEnv !== 'test') app.use(morgan('dev'));
 
-// ── API Routes ─────────────────────────────────────────────────────────────────
 app.use('/api/auth',      authRoutes);
 app.use('/api/tasks',     taskRoutes);
 app.use('/api/goals',     goalRoutes);
@@ -61,32 +57,49 @@ app.use('/api/habits',    habitRoutes);
 app.use('/api/notes',     noteRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
-// ── Health check ───────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
   res.json({
-    status:  'OK',
-    env:     config.nodeEnv,
-    db:      mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    uptime:  Math.floor(process.uptime()) + 's',
+    status: 'OK',
+    env:    config.nodeEnv,
+    db:     mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    uptime: Math.floor(process.uptime()) + 's',
+    port:   config.port,
   });
 });
 
-// ── 404 ────────────────────────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ message: 'Route not found' }));
-
-// ── Error handler ─────────────────────────────────────────────────────────────
 app.use(errorHandler);
 
-// ── Start ─────────────────────────────────────────────────────────────────────
+// Start with clear EADDRINUSE handling
 const startServer = async () => {
   try {
     await connectDB();
-    app.listen(config.port, () => {
+
+    const server = app.listen(config.port, () => {
+      console.log('');
       console.log('🚀  Server running  → http://localhost:' + config.port);
       console.log('📡  Environment     → ' + config.nodeEnv);
       console.log('🔗  Frontend URL    → ' + config.clientUrl);
+      console.log('🏥  Health check    → http://localhost:' + config.port + '/api/health');
+      console.log('');
       startScheduler();
     });
+
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error('');
+        console.error('❌  Port ' + config.port + ' is already in use!');
+        console.error('   Run this to fix it:');
+        console.error('   > taskkill /IM node.exe /F');
+        console.error('   Then run npm run dev again.');
+        console.error('');
+        process.exit(1);
+      } else {
+        console.error('❌  Server error:', err.message);
+        process.exit(1);
+      }
+    });
+
   } catch (err) {
     console.error('❌  Startup failed:', err.message);
     process.exit(1);
