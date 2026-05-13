@@ -31,13 +31,22 @@ exports.createTask = async (req, res, next) => {
 // PATCH /api/tasks/reorder  (must be before /:id)
 exports.reorderTasks = async (req, res, next) => {
   try {
-    const { taskIds } = req.body;
-    await Promise.all(
-      taskIds.map((id, idx) =>
-        Task.findOneAndUpdate({ _id: id, user: req.user.id }, { order: idx })
-      )
-    );
-    res.json({ message: 'Reordered' });
+    const { tasks } = req.body;
+    if (!Array.isArray(tasks)) {
+      return res.status(400).json({ message: 'Tasks array is required' });
+    }
+
+    const updates = tasks.map((t) => ({
+      updateOne: {
+        filter: { _id: t.id, user: req.user.id },
+        update: { $set: { order: t.order, status: t.status } }
+      }
+    }));
+
+    if (updates.length > 0) {
+      await Task.bulkWrite(updates);
+    }
+    res.json({ message: 'Tasks reordered successfully' });
   } catch (err) { next(err); }
 };
 

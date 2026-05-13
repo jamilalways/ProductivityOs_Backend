@@ -3,7 +3,7 @@ const User  = require('../models/User');
 
 exports.getSkills = async (req, res, next) => {
   try {
-    const skills = await Skill.find({ user: req.user.id }).sort({ createdAt: -1 });
+    const skills = await Skill.find({ user: req.user.id }).sort({ order: 1, createdAt: -1 });
     res.json({ skills });
   } catch (err) { next(err); }
 };
@@ -68,5 +68,27 @@ exports.deleteSkill = async (req, res, next) => {
     const skill = await Skill.findOneAndDelete({ _id: req.params.id, user: req.user.id });
     if (!skill) return res.status(404).json({ message: 'Skill not found' });
     res.json({ message: 'Deleted' });
+  } catch (err) { next(err); }
+};
+
+exports.reorderSkills = async (req, res, next) => {
+  try {
+    const { skills } = req.body;
+    if (!Array.isArray(skills)) {
+      return res.status(400).json({ message: 'Skills array is required' });
+    }
+
+    const updates = skills.map((sk) => ({
+      updateOne: {
+        filter: { _id: sk.id, user: req.user.id },
+        update: { $set: { order: sk.order, category: sk.category } }
+      }
+    }));
+
+    if (updates.length > 0) {
+      await Skill.bulkWrite(updates);
+    }
+
+    res.json({ message: 'Skills reordered successfully' });
   } catch (err) { next(err); }
 };

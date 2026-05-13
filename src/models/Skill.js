@@ -15,6 +15,7 @@ const skillSchema = new mongoose.Schema({
   color:            { type: String, default: '#8b5cf6' },
   topics:           [topicSchema],
   totalTimeMinutes: { type: Number, default: 0 },
+  order:            { type: Number, default: 0 },
 }, { timestamps: true });
 
 // Virtual: progress %

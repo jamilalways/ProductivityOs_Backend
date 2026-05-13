@@ -6,6 +6,7 @@ router.use(protect);
 
 router.get   ('/',                          ctrl.getSkills);
 router.post  ('/',                          ctrl.createSkill);
+router.patch ('/reorder',                   ctrl.reorderSkills);
 router.patch ('/:id',                       ctrl.updateSkill);
 router.patch ('/:id/topics/:topicId/toggle',ctrl.toggleTopic);
 router.delete('/:id/topics/:topicId',       ctrl.deleteTopic);
