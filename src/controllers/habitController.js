@@ -1,5 +1,6 @@
 const Habit = require('../models/Habit');
 const User  = require('../models/User');
+const analyticsCtrl = require('./analyticsController');
 
 exports.getHabits = async (req, res, next) => {
   try {
@@ -40,7 +41,15 @@ exports.checkIn = async (req, res, next) => {
     if (habit.streak > habit.longestStreak) habit.longestStreak = habit.streak;
 
     await habit.save();
-    await User.findByIdAndUpdate(req.user.id, { $inc: { xp: 10 } });
+    
+    // XP and Analytics
+    const xp = 10;
+    await User.findByIdAndUpdate(req.user.id, { $inc: { xp } });
+    await analyticsCtrl.logActivity(req.user.id, {
+      habitsCompleted: 1,
+      xpEarned: xp,
+      productivityScore: 5
+    });
 
     res.json({ habit });
   } catch (err) { next(err); }

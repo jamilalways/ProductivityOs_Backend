@@ -5,7 +5,7 @@ const Task      = require('../models/Task');
 exports.getAnalytics = async (req, res, next) => {
   try {
     const { period = 'weekly' } = req.query;
-    const days = { weekly: 7, monthly: 30, quarterly: 90 }[period] || 7;
+    const days = { weekly: 7, monthly: 30, quarterly: 90, yearly: 365 }[period] || 7;
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 

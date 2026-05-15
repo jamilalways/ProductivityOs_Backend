@@ -1,5 +1,6 @@
 const Skill = require('../models/Skill');
 const User  = require('../models/User');
+const analyticsCtrl = require('./analyticsController');
 
 exports.getSkills = async (req, res, next) => {
   try {
@@ -41,9 +42,21 @@ exports.toggleTopic = async (req, res, next) => {
     topic.completed = !topic.completed;
     await skill.save();
 
-    // Award XP when topic completed
+    const xp = 20;
     if (topic.completed) {
-      await User.findByIdAndUpdate(req.user.id, { $inc: { xp: 20 } });
+      // Completed: Increment
+      await User.findByIdAndUpdate(req.user.id, { $inc: { xp } });
+      await analyticsCtrl.logActivity(req.user.id, { 
+        xpEarned: xp,
+        productivityScore: 5 
+      });
+    } else {
+      // Un-completed: Decrement
+      await User.findByIdAndUpdate(req.user.id, { $inc: { xp: -xp } });
+      await analyticsCtrl.logActivity(req.user.id, { 
+        xpEarned: -xp,
+        productivityScore: -5 
+      });
     }
 
     res.json({ skill });
