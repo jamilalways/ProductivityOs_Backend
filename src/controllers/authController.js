@@ -56,7 +56,7 @@ exports.getMe = async (req, res, next) => {
 // PATCH /api/auth/update
 exports.updateProfile = async (req, res, next) => {
   try {
-    const allowed = ['name', 'avatar', 'theme', 'notifications'];
+    const allowed = ['name', 'avatar', 'theme', 'notifications', 'mantra'];
     const updates = {};
     allowed.forEach((k) => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
     const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true, runValidators: true });

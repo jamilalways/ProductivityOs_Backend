@@ -25,6 +25,7 @@ const userSchema = new mongoose.Schema({
     taskReminders:  { type: Boolean, default: true },
     deadlineAlerts: { type: Boolean, default: true },
   },
+  mantra: { type: String, default: 'Consistency is key' },
 }, { timestamps: true });
 
 // Hash password before save
